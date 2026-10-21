@@ -24,6 +24,12 @@ Earlier in development, calling any protected endpoint briefly returned an API G
 
 All functionality is confirmed working end-to-end on the deployed stack.
 
+### Submission status (latest)
+
+- Implementation is pushed to the **`main`** branch of the fork: https://github.com/alisaber21-arch/cd12101-Deploy-Application-with-AWS-Lambda
+- An earlier Udacity review attempt was rejected ("project is incomplete... complete all the TODO tasks") because the implementation had only been pushed to a feature branch, while the fork's default `main` branch still showed the original unimplemented template. This has been fixed: `main` is now fast-forwarded to the completed implementation commit and verified publicly on GitHub (raw file content checked directly, not just local state).
+- **Next step**: resubmit to Udacity using the repo URL above (default `main` branch) plus the deployed API endpoint `https://wha96zzsg9.execute-api.us-east-1.amazonaws.com/dev`.
+
 # Functionality of the application
 
 This appliation will allow to create/remove/update/get TODO items. Each TODO item can optionally have an attachment image. Each user only has access to TODO items that he/she has created. 
