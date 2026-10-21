@@ -76,11 +76,8 @@ export function Todos() {
 
   async function onTodoDelete(todoId) {
     try {
-      const accessToken = await getAccessTokenSilently({
-        audience: `https://test-endpoint.auth0.com/api/v2/`,
-        scope: 'delete:todo'
-      })
-      await deleteTodo(accessToken, todoId)
+      const { __raw: idToken } = await getIdTokenClaims()
+      await deleteTodo(idToken, todoId)
       setTodos(todos.filter((todo) => todo.todoId !== todoId))
     } catch (e) {
       alert('Todo deletion failed')
@@ -90,11 +87,8 @@ export function Todos() {
   async function onTodoCheck(pos) {
     try {
       const todo = todos[pos]
-      const accessToken = await getAccessTokenSilently({
-        audience: `https://test-endpoint.auth0.com/api/v2/`,
-        scope: 'write:todo'
-      })
-      await patchTodo(accessToken, todo.todoId, {
+      const { __raw: idToken } = await getIdTokenClaims()
+      await patchTodo(idToken, todo.todoId, {
         name: todo.name,
         dueDate: todo.dueDate,
         done: !todo.done
@@ -114,7 +108,7 @@ export function Todos() {
     navigate(`/todos/${todoId}/edit`)
   }
 
-  const { user, getAccessTokenSilently } = useAuth0()
+  const { user, getIdTokenClaims } = useAuth0()
   const [todos, setTodos] = useState([])
   const [loadingTodos, setLoadingTodos] = useState(true)
   const navigate = useNavigate()
@@ -127,20 +121,18 @@ export function Todos() {
   useEffect(() => {
     async function foo() {
       try {
-        const accessToken = await getAccessTokenSilently({
-          audience: `https://test-endpoint.auth0.com/api/v2/`,
-          scope: 'read:todos'
-        })
-        console.log('Access token: ' + accessToken)
-        const todos = await getTodos(accessToken)
+        const { __raw: idToken } = await getIdTokenClaims()
+        const todos = await getTodos(idToken)
         setTodos(todos)
-        setLoadingTodos(false)
       } catch (e) {
+        console.error('Failed to fetch todos', e)
         alert(`Failed to fetch todos: ${e.message}`)
+      } finally {
+        setLoadingTodos(false)
       }
     }
     foo()
-  }, [getAccessTokenSilently])
+  }, [getIdTokenClaims])
 
   return (
     <div>

@@ -2,6 +2,28 @@
 
 To implement this project you need to implement a simple TODO application using AWS Lambda and Serverless framework. Search for all the `TODO:` comments in the code to find the placeholders that you need to implement.
 
+## Implementation status
+
+All backend (`starter/backend`) and frontend (`starter/client`) code is fully implemented and deployed. Notes on specific decisions:
+
+- **S3 bucket uniqueness**: `ATTACHMENT_S3_BUCKET` is `serverless-c4-todo-images-${self:provider.stage}-${aws:accountId}` (see `backend/serverless.yml`). Appending the AWS account ID guarantees global uniqueness across all AWS accounts/regions without needing a hardcoded random suffix.
+- **Auth0**: Domain `dev-mbiuf40w8uhpnh4y.us.auth0.com`. The SPA uses an Auth0 Application of type **Single Page Application** (required for the Authorization Code + PKCE flow used by `@auth0/auth0-react`) with Allowed Callback/Logout URLs and Web Origins set to `http://localhost:3000`. The backend authorizer (`auth0Authorizer.mjs`) verifies the JWT's RS256 signature via the Auth0 JWKS endpoint and reads the `sub` claim; it does not validate `aud`, so the frontend sends the Auth0 **ID token** (not an access token for a custom API) as the bearer token.
+- **Deployed API**: `https://wha96zzsg9.execute-api.us-east-1.amazonaws.com/dev` (already set in `client/.env` as `REACT_APP_API_ENDPOINT`).
+
+### Resolved issue: transient `AuthorizerConfigurationException` on `/todos`
+
+Earlier in development, calling any protected endpoint briefly returned an API Gateway `AuthorizerConfigurationException` (500). Static analysis (CloudFormation template, deployed zip contents, local execution of the exact authorizer handler) confirmed the code itself had no bug. The root cause was a stale deployment: a plain `serverless deploy` reported "No changes to deploy" and skipped the actual update. Running `serverless deploy --force` (with valid AWS credentials configured in the terminal) triggered a genuine redeploy and resolved the issue.
+
+**Full end-to-end verification performed against the live API** after the fix:
+- Auth0 login/consent flow
+- `GetTodos` (200, returns the current user's todos)
+- `CreateTodo` (201, new todo appears immediately)
+- `UpdateTodo` (toggling `done` persists across a full reload + re-login)
+- `DeleteTodo` (removal persists across a full reload)
+- `GenerateUploadUrl` (200, returns a valid presigned S3 PUT URL)
+
+All functionality is confirmed working end-to-end on the deployed stack.
+
 # Functionality of the application
 
 This appliation will allow to create/remove/update/get TODO items. Each TODO item can optionally have an attachment image. Each user only has access to TODO items that he/she has created. 

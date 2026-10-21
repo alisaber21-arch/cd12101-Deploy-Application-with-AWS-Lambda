@@ -1,10 +1,15 @@
 import Axios from 'axios'
 import jsonwebtoken from 'jsonwebtoken'
+import jwksClient from 'jwks-rsa'
 import { createLogger } from '../../utils/logger.mjs'
 
 const logger = createLogger('auth')
 
-const jwksUrl = 'https://test-endpoint.auth0.com/.well-known/jwks.json'
+const jwksUrl = 'https://dev-mbiuf40w8uhpnh4y.us.auth0.com/.well-known/jwks.json'
+
+const client = jwksClient({
+  jwksUri: jwksUrl
+})
 
 export async function handler(event) {
   try {
@@ -46,8 +51,26 @@ async function verifyToken(authHeader) {
   const token = getToken(authHeader)
   const jwt = jsonwebtoken.decode(token, { complete: true })
 
-  // TODO: Implement token verification
-  return undefined;
+  if (!jwt || !jwt.header || !jwt.header.kid) {
+    throw new Error('Invalid token: missing key id (kid)')
+  }
+
+  const signingKey = await getSigningKey(jwt.header.kid)
+
+  return jsonwebtoken.verify(token, signingKey, { algorithms: ['RS256'] })
+}
+
+function getSigningKey(kid) {
+  return new Promise((resolve, reject) => {
+    client.getSigningKey(kid, (err, key) => {
+      if (err) {
+        reject(err)
+        return
+      }
+
+      resolve(key.getPublicKey())
+    })
+  })
 }
 
 function getToken(authHeader) {

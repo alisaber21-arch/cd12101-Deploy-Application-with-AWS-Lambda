@@ -37,7 +37,7 @@ export default function App() {
     }
   }
 
-  const { isAuthenticated, isLoading, loginWithRedirect, logout } = useAuth0()
+  const { isAuthenticated, isLoading, loginWithRedirect, logout, error } = useAuth0()
 
   return (
     <div>
@@ -48,7 +48,13 @@ export default function App() {
               <BrowserRouter>
                 {generateMenu()}
 
-                {generateCurrentPage(isAuthenticated)}
+                {error && (
+                  <div style={{ color: 'red', padding: '1em' }}>
+                    Auth0 error: {error.message}
+                  </div>
+                )}
+
+                {isLoading ? <div>Loading...</div> : generateCurrentPage(isAuthenticated)}
               </BrowserRouter>
             </Grid.Column>
           </Grid.Row>
