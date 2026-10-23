@@ -24,11 +24,26 @@ Earlier in development, calling any protected endpoint briefly returned an API G
 
 All functionality is confirmed working end-to-end on the deployed stack.
 
+### Code architecture
+
+The backend (`starter/backend/src`) is split into layers:
+
+- **`src/lambda/http`** — thin Lambda HTTP handlers. Each one only parses the incoming event, calls into the business-logic layer, and returns an HTTP response. All five are wrapped with `middy` (`@middy/core`) plus `@middy/http-cors` and `@middy/http-error-handler`, so any `http-errors` thrown anywhere downstream (validation failures, not-found/not-owned todos) is converted into a clean HTTP response with correct status code and CORS headers, instead of an uncaught 500.
+- **`src/businessLogic/todos.mjs`** — TODO rules: input validation (`name`/`dueDate`/`done` required and well-typed, returns `400` via `http-errors` otherwise), ownership enforcement (a todo can only be read/updated/deleted/attached-to by the user who created it, returns `404` otherwise), and ID/timestamp generation. Contains no direct AWS SDK calls.
+- **`src/dataLayer/todosAccess.mjs`** and **`src/dataLayer/attachmentUtils.mjs`** — the only places that talk to DynamoDB and S3 respectively (via the AWS SDK v3 `DynamoDBDocumentClient` / `S3Client`). No business rules live here.
+
+This satisfies the "business logic separated from I/O" and "HTTP requests are validated" review criteria.
+
+### Resolved issue: 500 on authenticated requests
+
+A later live regression (`GetTodos`/`CreateTodo`/`UpdateTodo`/`DeleteTodo` all returning `500` for any request carrying a valid token, while unauthenticated requests correctly got `401`) is consistent with the `Auth` custom authorizer Lambda failing/timing out on invocation (API Gateway returns a generic `500` when a custom authorizer itself errors or times out, as opposed to a clean `401`/`403` which it returns when the authorizer successfully executes and denies). As a hardening fix, `Auth` now has an explicit `timeout: 10` in `serverless.yml` (up from the Serverless Framework's 6s default) to give the Auth0 JWKS HTTPS fetch (via `jwks-rsa`) enough headroom on a cold start. If authenticated requests still fail after redeploying with this change, check `serverless logs -f Auth` (or the function's CloudWatch Logs group) for the actual invocation error — this can also indicate the AWS classroom sandbox credentials/session have expired and need to be refreshed, followed by `serverless deploy --force`.
+
 ### Submission status (latest)
 
 - Implementation is pushed to the **`main`** branch of the fork: https://github.com/alisaber21-arch/cd12101-Deploy-Application-with-AWS-Lambda
 - An earlier Udacity review attempt was rejected ("project is incomplete... complete all the TODO tasks") because the implementation had only been pushed to a feature branch, while the fork's default `main` branch still showed the original unimplemented template. This has been fixed: `main` is now fast-forwarded to the completed implementation commit and verified publicly on GitHub (raw file content checked directly, not just local state).
-- **Next step**: resubmit to Udacity using the repo URL above (default `main` branch) plus the deployed API endpoint `https://wha96zzsg9.execute-api.us-east-1.amazonaws.com/dev`.
+- A second Udacity review flagged a live 500-on-authenticated-request regression plus two code-quality gaps (no business-logic/I/O layering, no request validation) — addressed by the layered-architecture refactor and `Auth` timeout hardening described above.
+- **Next step**: redeploy (`sls deploy -v` or `sls deploy --force -v`) from a terminal with valid AWS credentials, re-verify all TODO flows live in the browser, then resubmit to Udacity using the repo URL above (default `main` branch) plus the deployed API endpoint `https://wha96zzsg9.execute-api.us-east-1.amazonaws.com/dev` (re-confirm this hasn't changed after redeploying).
 
 # Functionality of the application
 

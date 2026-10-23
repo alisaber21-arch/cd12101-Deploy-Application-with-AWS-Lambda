@@ -1,4 +1,3 @@
-import Axios from 'axios'
 import jsonwebtoken from 'jsonwebtoken'
 import jwksClient from 'jwks-rsa'
 import { createLogger } from '../../utils/logger.mjs'

@@ -21,6 +21,9 @@ functions:
 
   Auth:
     handler: src/lambda/auth/auth0Authorizer.handler
+    # Explicit timeout (default is 6s) to give the JWKS HTTPS fetch enough
+    # headroom on a cold start, avoiding spurious 500s on authenticated calls.
+    timeout: 10
 
   GetTodos:
     handler: src/lambda/http/getTodos.handler

@@ -1,49 +1,29 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb'
-import { v4 as uuidv4 } from 'uuid'
+import middy from '@middy/core'
+import httpErrorHandler from '@middy/http-error-handler'
+import cors from '@middy/http-cors'
+import createError from 'http-errors'
 import { getUserId } from '../utils.mjs'
-import { createLogger } from '../../utils/logger.mjs'
+import { createTodo } from '../../businessLogic/todos.mjs'
 
-const logger = createLogger('createTodo')
-
-const client = new DynamoDBClient()
-const docClient = DynamoDBDocumentClient.from(client)
-
-const todosTable = process.env.TODOS_TABLE
-
-export async function handler(event) {
-  const newTodo = JSON.parse(event.body)
+async function createTodoHandler(event) {
   const userId = getUserId(event)
 
-  const todoId = uuidv4()
-  const createdAt = new Date().toISOString()
-
-  const newItem = {
-    todoId,
-    userId,
-    createdAt,
-    name: newTodo.name,
-    dueDate: newTodo.dueDate,
-    done: false
+  let newTodo
+  try {
+    newTodo = JSON.parse(event.body)
+  } catch (e) {
+    throw createError(400, 'Invalid JSON in request body')
   }
 
-  logger.info('Creating new todo item', { todoId, userId })
-
-  await docClient.send(
-    new PutCommand({
-      TableName: todosTable,
-      Item: newItem
-    })
-  )
+  const item = await createTodo(userId, newTodo)
 
   return {
     statusCode: 201,
-    headers: {
-      'Access-Control-Allow-Origin': '*'
-    },
-    body: JSON.stringify({
-      item: newItem
-    })
+    body: JSON.stringify({ item })
   }
 }
+
+export const handler = middy(createTodoHandler)
+  .use(cors())
+  .use(httpErrorHandler())
 

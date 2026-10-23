@@ -1,60 +1,29 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import {
-  DynamoDBDocumentClient,
-  GetCommand,
-  UpdateCommand
-} from '@aws-sdk/lib-dynamodb'
+import middy from '@middy/core'
+import httpErrorHandler from '@middy/http-error-handler'
+import cors from '@middy/http-cors'
 import createError from 'http-errors'
 import { getUserId } from '../utils.mjs'
-import { createLogger } from '../../utils/logger.mjs'
+import { updateTodo } from '../../businessLogic/todos.mjs'
 
-const logger = createLogger('updateTodo')
-
-const client = new DynamoDBClient()
-const docClient = DynamoDBDocumentClient.from(client)
-
-const todosTable = process.env.TODOS_TABLE
-
-export async function handler(event) {
+async function updateTodoHandler(event) {
   const todoId = event.pathParameters.todoId
-  const updatedTodo = JSON.parse(event.body)
   const userId = getUserId(event)
 
-  const existingItem = await docClient.send(
-    new GetCommand({
-      TableName: todosTable,
-      Key: { todoId }
-    })
-  )
-
-  if (!existingItem.Item || existingItem.Item.userId !== userId) {
-    logger.error('Todo not found or does not belong to user', { todoId, userId })
-    throw createError(404, 'Todo not found')
+  let updatedTodo
+  try {
+    updatedTodo = JSON.parse(event.body)
+  } catch (e) {
+    throw createError(400, 'Invalid JSON in request body')
   }
 
-  logger.info('Updating todo item', { todoId, userId })
-
-  await docClient.send(
-    new UpdateCommand({
-      TableName: todosTable,
-      Key: { todoId },
-      UpdateExpression: 'set #name = :name, dueDate = :dueDate, done = :done',
-      ExpressionAttributeNames: {
-        '#name': 'name'
-      },
-      ExpressionAttributeValues: {
-        ':name': updatedTodo.name,
-        ':dueDate': updatedTodo.dueDate,
-        ':done': updatedTodo.done
-      }
-    })
-  )
+  await updateTodo(userId, todoId, updatedTodo)
 
   return {
     statusCode: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*'
-    },
     body: ''
   }
 }
+
+export const handler = middy(updateTodoHandler)
+  .use(cors())
+  .use(httpErrorHandler())
